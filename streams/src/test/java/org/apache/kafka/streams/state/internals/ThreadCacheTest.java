@@ -26,6 +26,7 @@ import org.apache.kafka.streams.processor.internals.MockStreamsMetrics;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -36,6 +37,7 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -618,6 +620,26 @@ public class ThreadCacheTest {
         assertEquals(94, cache.sizeBytes());
         cache.put(namespace1, Bytes.wrap(new byte[]{4}), cleanEntry(new byte[]{0}));
         assertEquals(94, cache.sizeBytes());
+    }
+
+    @Test
+    public void shouldCountTheSourceRawValueThatACachedEntryKeepsReachable() {
+        final ThreadCache cache = new ThreadCache(logContext, 100000L, new MockStreamsMetrics(new Metrics()));
+        final WeakReference<byte[]> sourceRawValue = putEntryWithSourceRawValue(cache, 40000);
+
+        System.gc();
+
+        final byte[] retained = sourceRawValue.get();
+        assertNotNull(retained, "the cached entry keeps the source raw value reachable");
+        assertTrue(cache.sizeBytes() >= retained.length,
+            "cache counts " + cache.sizeBytes() + " bytes but keeps a " + retained.length + "-byte source raw value reachable");
+    }
+
+    private WeakReference<byte[]> putEntryWithSourceRawValue(final ThreadCache cache, final int sourceRawValueSize) {
+        final byte[] sourceRawValue = new byte[sourceRawValueSize];
+        cache.put(namespace, Bytes.wrap(new byte[]{1}),
+            new LRUCacheEntry(new byte[]{0}, new RecordHeaders(), true, 1L, 1L, 1, "", null, sourceRawValue));
+        return new WeakReference<>(sourceRawValue);
     }
 
     private LRUCacheEntry dirtyEntry(final byte[] key) {
