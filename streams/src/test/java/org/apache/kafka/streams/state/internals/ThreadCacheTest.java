@@ -48,8 +48,8 @@ public class ThreadCacheTest {
     final String namespace2 = "0.2-namespace";
     private final LogContext logContext = new LogContext("testCache ");
     private final byte[][] bytes = new byte[][]{{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}};
-    private final byte[] rawKey = new byte[]{0};
-    private final byte[] rawValue = new byte[]{0};
+    private final byte[] rawKey = null;
+    private final byte[] rawValue = null;
 
     @Test
     public void basicPutGet() {
@@ -620,6 +620,29 @@ public class ThreadCacheTest {
         assertEquals(94, cache.sizeBytes());
         cache.put(namespace1, Bytes.wrap(new byte[]{4}), cleanEntry(new byte[]{0}));
         assertEquals(94, cache.sizeBytes());
+    }
+
+    @Test
+    public void shouldCountSourceRawKeyAndValueInEntrySize() {
+        final byte[] value = new byte[]{0};
+        final LRUCacheEntry withoutRawRecord = new LRUCacheEntry(value, new RecordHeaders(), true, 1L, 1L, 1, "topic", null, null);
+        final LRUCacheEntry withRawRecord = new LRUCacheEntry(value, new RecordHeaders(), true, 1L, 1L, 1, "topic", new byte[100], new byte[4000]);
+
+        assertEquals(withoutRawRecord.size() + 100 + 4000, withRawRecord.size());
+    }
+
+    @Test
+    public void shouldEvictWhenSourceRawValuesFillTheCache() {
+        final long maxCacheSizeBytes = 10000L;
+        final ThreadCache cache = new ThreadCache(logContext, maxCacheSizeBytes, new MockStreamsMetrics(new Metrics()));
+
+        for (int i = 0; i < 10; i++) {
+            final Bytes key = Bytes.wrap(("K" + i).getBytes());
+            cache.put(namespace, key, new LRUCacheEntry(new byte[]{0}, new RecordHeaders(), false, 1L, 1L, 1, "", new byte[]{0}, new byte[4000]));
+        }
+
+        assertTrue(cache.evicts() > 0);
+        assertTrue(cache.sizeBytes() <= maxCacheSizeBytes);
     }
 
     @Test

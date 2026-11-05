@@ -61,7 +61,11 @@ class LRUCacheEntry {
 
         this.isDirty = isDirty;
         this.sizeBytes = 1 + // isDirty
-            record.residentMemorySizeEstimate();
+            record.residentMemorySizeEstimate() +
+            // the source raw record copied into this entry's own context, which
+            // ProcessorRecordContext#residentMemorySizeEstimate() does not count
+            (rawKey == null ? 0 : rawKey.length) +
+            (rawValue == null ? 0 : rawValue.length);
     }
 
     void markClean() {

@@ -44,8 +44,8 @@ public class NamedCacheTest {
 
     private final Headers headers = new RecordHeaders(new Header[]{new RecordHeader("key", "value".getBytes())});
     private NamedCache cache;
-    private final byte[] rawKey = new byte[]{0};
-    private final byte[] rawValue = new byte[]{0};
+    private final byte[] rawKey = null;
+    private final byte[] rawValue = null;
 
     @BeforeEach
     public void setUp() {
